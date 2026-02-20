@@ -69,6 +69,25 @@ export async function getNewUsersPerMonth(months: number = 12) {
   `;
 }
 
+export async function getCategoryPerformance() {
+  return sql`
+    SELECT 
+      c.id,
+      c.name,
+      COUNT(DISTINCT o.id) as order_count,
+      COUNT(DISTINCT oi.product_id) as product_count,
+      COALESCE(SUM(oi.price * oi.quantity), 0) as total_revenue,
+      COALESCE(SUM(oi.quantity), 0) as units_sold
+    FROM categories c
+    LEFT JOIN products p ON p.category_id = c.id
+    LEFT JOIN order_items oi ON oi.product_id = p.id
+    LEFT JOIN orders o ON o.id = oi.order_id AND o.status != 'CANCELLED'
+    GROUP BY c.id, c.name
+    HAVING COUNT(DISTINCT o.id) > 0
+    ORDER BY total_revenue DESC
+  `;
+}
+
 // VENDOR Analytics
 export async function getVendorSales(vendorId: string) {
   const result = await sql`
@@ -125,6 +144,75 @@ export async function getVendorLowStockProducts(vendorId: string, threshold: num
       AND stock <= ${threshold}
       AND is_active = true
     ORDER BY stock ASC
+  `;
+}
+
+export async function getVendorConversionRate(vendorId: string) {
+  // Conversion rate = (orders / product views) * 100
+  // For simplicity, we'll use: (orders with products / total products) as a proxy
+  const result = await sql`
+    SELECT 
+      COUNT(DISTINCT p.id) as total_products,
+      COUNT(DISTINCT oi.order_id) as orders_with_products
+    FROM products p
+    LEFT JOIN order_items oi ON oi.product_id = p.id
+    LEFT JOIN orders o ON o.id = oi.order_id AND o.status != 'CANCELLED'
+    WHERE p.vendor_id = ${vendorId}
+  `;
+  
+  const data = result[0];
+  const totalProducts = parseInt(data.total_products || '0');
+  const ordersWithProducts = parseInt(data.orders_with_products || '0');
+  
+  return totalProducts > 0 ? (ordersWithProducts / totalProducts) * 100 : 0;
+}
+
+export async function getVendorMonthlyGrowth(vendorId: string) {
+  const result = await sql`
+    WITH monthly_sales AS (
+      SELECT 
+        DATE_TRUNC('month', o.created_at) as month,
+        COALESCE(SUM(oi.price * oi.quantity), 0) as revenue
+      FROM order_items oi
+      JOIN orders o ON o.id = oi.order_id
+      WHERE oi.vendor_id = ${vendorId}
+        AND o.status != 'CANCELLED'
+        AND o.created_at >= NOW() - INTERVAL '2 months'
+      GROUP BY DATE_TRUNC('month', o.created_at)
+    ),
+    current_month AS (
+      SELECT revenue FROM monthly_sales 
+      WHERE month = DATE_TRUNC('month', NOW())
+    ),
+    previous_month AS (
+      SELECT revenue FROM monthly_sales 
+      WHERE month = DATE_TRUNC('month', NOW() - INTERVAL '1 month')
+    )
+    SELECT 
+      COALESCE((cm.revenue - pm.revenue) / NULLIF(pm.revenue, 0) * 100, 0) as growth_percentage
+    FROM current_month cm
+    CROSS JOIN previous_month pm
+  `;
+  
+  return parseFloat(result[0]?.growth_percentage || '0');
+}
+
+export async function getCustomerRecentlyViewed(customerId: string, limit: number = 5) {
+  return sql`
+    SELECT 
+      p.*,
+      v.name as vendor_name,
+      b.name as brand_name,
+      cpr.created_at as viewed_at
+    FROM customer_product_relations cpr
+    JOIN products p ON p.id = cpr.product_id
+    JOIN vendors v ON v.id = p.vendor_id
+    LEFT JOIN brands b ON b.id = p.brand_id
+    WHERE cpr.customer_id = ${customerId}
+      AND cpr.relation_type = 'VIEWED'
+      AND p.is_active = true
+    ORDER BY cpr.created_at DESC
+    LIMIT ${limit}
   `;
 }
 

@@ -1,6 +1,7 @@
 import DashboardLayout from '@/components/layouts/DashboardLayout';
 import { requireSuperAdmin } from '@/lib/rbac';
 import sql from '@/lib/db';
+import DataTable from '@/components/ui/DataTable';
 
 export default async function AdminCustomersPage() {
   await requireSuperAdmin();
@@ -31,68 +32,59 @@ export default async function AdminCustomersPage() {
           </p>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-gray-900">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Customer Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Email
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Orders
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Total Spent
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Joined
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {customers.map((customer: any) => (
-                  <tr key={customer.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium">{customer.name}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm">{customer.email}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm">{parseInt(customer.order_count || '0')}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium">
-                        ${parseFloat(customer.total_spent || '0').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        customer.is_active 
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                          : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                      }`}>
-                        {customer.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">
-                        {new Date(customer.created_at).toLocaleDateString()}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <DataTable
+          data={customers}
+          columns={[
+            { key: 'name', header: 'Customer Name', sortable: true },
+            { key: 'email', header: 'Email', sortable: true },
+            {
+              key: 'order_count',
+              header: 'Orders',
+              sortable: true,
+              render: (row: any) => parseInt(row.order_count || '0'),
+            },
+            {
+              key: 'total_spent',
+              header: 'Total Spent',
+              sortable: true,
+              render: (row: any) => `$${parseFloat(row.total_spent || '0').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            },
+            {
+              key: 'is_active',
+              header: 'Status',
+              sortable: true,
+              render: (row: any) => (
+                <span className={`px-2 py-1 text-xs rounded-full ${
+                  row.is_active 
+                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                    : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                }`}>
+                  {row.is_active ? 'Active' : 'Inactive'}
+                </span>
+              ),
+            },
+            {
+              key: 'created_at',
+              header: 'Joined',
+              sortable: true,
+              render: (row: any) => new Date(row.created_at).toLocaleDateString(),
+            },
+          ]}
+          searchable={true}
+          searchPlaceholder="Search customers..."
+          pagination={true}
+          itemsPerPage={25}
+          filters={[
+            {
+              key: 'is_active',
+              label: 'Status',
+              options: [
+                { value: 'true', label: 'Active' },
+                { value: 'false', label: 'Inactive' },
+              ],
+            },
+          ]}
+        />
       </div>
     </DashboardLayout>
   );

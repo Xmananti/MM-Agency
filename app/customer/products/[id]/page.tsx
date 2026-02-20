@@ -4,6 +4,7 @@ import { requireRole } from '@/lib/rbac';
 import { notFound } from 'next/navigation';
 import AddToCartForm from '@/components/orders/AddToCartForm';
 import WishlistButton from '@/components/products/WishlistButton';
+import ProductViewTracker from '@/components/products/ProductViewTracker';
 
 export default async function ProductDetailPage({
   params,
@@ -29,6 +30,7 @@ export default async function ProductDetailPage({
 
   return (
     <DashboardLayout allowedRoles={['CUSTOMER']}>
+      <ProductViewTracker productId={product.id} />
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-8">
           <h1 className="text-3xl font-bold mb-4">{product.name}</h1>

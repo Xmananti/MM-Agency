@@ -7,17 +7,21 @@ import {
   getVendorSales, 
   getVendorRevenueOverTime,
   getVendorBestSellingProducts,
-  getVendorLowStockProducts 
+  getVendorLowStockProducts,
+  getVendorConversionRate,
+  getVendorMonthlyGrowth
 } from '@/lib/analytics';
 
 export default async function VendorAnalyticsPage() {
   const vendor = await requireVendor();
   
-  const [sales, revenueOverTime, bestSelling, lowStock] = await Promise.all([
+  const [sales, revenueOverTime, bestSelling, lowStock, conversionRate, monthlyGrowth] = await Promise.all([
     getVendorSales(vendor.vendorId),
     getVendorRevenueOverTime(vendor.vendorId, 90),
     getVendorBestSellingProducts(vendor.vendorId, 10),
     getVendorLowStockProducts(vendor.vendorId, 10),
+    getVendorConversionRate(vendor.vendorId),
+    getVendorMonthlyGrowth(vendor.vendorId),
   ]);
 
   const totalSales = parseFloat(sales.total_sales || '0');
@@ -47,15 +51,19 @@ export default async function VendorAnalyticsPage() {
             icon="🛒"
           />
           <KPICard
-            title="Average Order Value"
-            value={`$${avgOrderValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            title="Conversion Rate"
+            value={`${conversionRate.toFixed(1)}%`}
             icon="📊"
+            subtitle="Orders per product"
           />
           <KPICard
-            title="Low Stock Items"
-            value={lowStock.length}
-            icon="⚠️"
-            subtitle={`${lowStock.length} products need restocking`}
+            title="Monthly Growth"
+            value={`${monthlyGrowth >= 0 ? '+' : ''}${monthlyGrowth.toFixed(1)}%`}
+            icon="📈"
+            trend={{
+              value: Math.abs(monthlyGrowth),
+              isPositive: monthlyGrowth >= 0,
+            }}
           />
         </div>
 

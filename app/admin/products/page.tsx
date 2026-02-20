@@ -1,7 +1,7 @@
 import DashboardLayout from '@/components/layouts/DashboardLayout';
 import { requireSuperAdmin } from '@/lib/rbac';
 import sql from '@/lib/db';
-import Link from 'next/link';
+import DataTable from '@/components/ui/DataTable';
 
 export default async function AdminProductsPage() {
   await requireSuperAdmin();
@@ -22,8 +22,11 @@ export default async function AdminProductsPage() {
     LEFT JOIN brands b ON b.id = p.brand_id
     LEFT JOIN categories c ON c.id = p.category_id
     ORDER BY p.created_at DESC
-    LIMIT 100
   `;
+
+  // Get unique vendors and categories for filters
+  const vendors = await sql`SELECT DISTINCT name FROM vendors ORDER BY name`;
+  const categories = await sql`SELECT DISTINCT name FROM categories WHERE name IS NOT NULL ORDER BY name`;
 
   return (
     <DashboardLayout allowedRoles={['SUPER_ADMIN']}>
@@ -35,72 +38,69 @@ export default async function AdminProductsPage() {
           </p>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-gray-900">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Product Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Brand
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Vendor
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Category
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Price
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Stock
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {products.map((product: any) => (
-                  <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium">{product.name}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm">{product.brand_name || '-'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm">{product.vendor_name}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm">{product.category_name || '-'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm">${parseFloat(product.price || '0').toFixed(2)}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className={`text-sm ${parseInt(product.stock || '0') < 10 ? 'text-red-600 font-medium' : ''}`}>
-                        {product.stock} units
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        product.is_active 
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                          : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
-                      }`}>
-                        {product.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <DataTable
+          data={products}
+          columns={[
+            { key: 'name', header: 'Product Name', sortable: true },
+            { key: 'brand_name', header: 'Brand', sortable: true },
+            { key: 'vendor_name', header: 'Vendor', sortable: true },
+            { key: 'category_name', header: 'Category', sortable: true },
+            {
+              key: 'price',
+              header: 'Price',
+              sortable: true,
+              render: (row: any) => `$${parseFloat(row.price || '0').toFixed(2)}`,
+            },
+            {
+              key: 'stock',
+              header: 'Stock',
+              sortable: true,
+              render: (row: any) => (
+                <span className={parseInt(row.stock || '0') < 10 ? 'text-red-600 font-medium' : ''}>
+                  {row.stock} units
+                </span>
+              ),
+            },
+            {
+              key: 'is_active',
+              header: 'Status',
+              sortable: true,
+              render: (row: any) => (
+                <span className={`px-2 py-1 text-xs rounded-full ${
+                  row.is_active 
+                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                    : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+                }`}>
+                  {row.is_active ? 'Active' : 'Inactive'}
+                </span>
+              ),
+            },
+          ]}
+          searchable={true}
+          searchPlaceholder="Search products..."
+          pagination={true}
+          itemsPerPage={20}
+          filters={[
+            {
+              key: 'vendor_name',
+              label: 'Vendor',
+              options: vendors.map((v: any) => ({ value: v.name, label: v.name })),
+            },
+            {
+              key: 'category_name',
+              label: 'Category',
+              options: categories.map((c: any) => ({ value: c.name, label: c.name })),
+            },
+            {
+              key: 'is_active',
+              label: 'Status',
+              options: [
+                { value: 'true', label: 'Active' },
+                { value: 'false', label: 'Inactive' },
+              ],
+            },
+          ]}
+        />
       </div>
     </DashboardLayout>
   );

@@ -1,0 +1,123 @@
+---
+description: Multi-vendor SaaS marketplace platform architecture and requirements
+alwaysApply: true
+---
+
+# Multi-Vendor Marketplace Platform
+
+## Tech Stack
+
+- **Framework**: Next.js (App Router)
+- **Language**: TypeScript
+- **Database**: PostgreSQL (hosted DB like Neon/Supabase)
+- **ORM**: Raw SQL (NO Prisma)
+- **Storage**: Vercel Blob for images
+- **Auth**: JWT (HTTP-only cookies)
+- **Authorization**: RBAC (Role-Based Access Control)
+- **Styling**: Tailwind CSS
+- **Validation**: Zod
+- **API**: Server Actions or Route Handlers
+- **Deployment**: Vercel
+
+## Roles
+
+- `SUPER_ADMIN` - Platform management
+- `VENDOR` - Store management
+- `CUSTOMER` - Shopping
+
+## Database Schema
+
+### users
+- `id` (uuid)
+- `name`
+- `email` (unique)
+- `password_hash`
+- `role` (SUPER_ADMIN | VENDOR | CUSTOMER)
+- `vendor_id` (nullable, FK to vendors)
+- `is_active`
+- `created_at`
+
+### vendors
+- `id` (uuid)
+- `name`
+- `description`
+- `logo_url` (Vercel Blob URL)
+- `commission_rate` (%)
+- `is_verified`
+- `created_at`
+
+### products
+- `id` (uuid)
+- `name`
+- `description`
+- `price`
+- `stock`
+- `vendor_id` (FK)
+- `category_id` (FK)
+- `image_urls` (array/text[])
+- `is_active`
+- `created_at`
+
+### orders
+- `id` (uuid)
+- `customer_id` (FK to users)
+- `total_amount`
+- `platform_commission`
+- `status`
+- `created_at`
+
+### order_items
+- `id` (uuid)
+- `order_id` (FK)
+- `product_id` (FK)
+- `vendor_id` (FK)
+- `quantity`
+- `price`
+
+## Authentication & Authorization
+
+- JWT stored in HTTP-only cookies
+- Role + vendorId embedded in token
+- Middleware route protection
+- RBAC enforcement at API, middleware, and UI levels
+- Vendor scope isolation: all vendor queries MUST filter by vendor_id
+
+## Architecture Structure
+
+```
+/app
+/components
+/components/charts
+/lib
+/lib/db          # SQL pool connection
+/lib/auth        # JWT helpers
+/lib/rbac        # Role guards
+/lib/analytics   # Aggregated query functions
+/middleware.ts   # Route protection
+/types
+```
+
+## Key Requirements
+
+1. **Raw SQL Only**: Use `pg` or `postgres` library directly, NO Prisma
+2. **Vendor Isolation**: Vendors can ONLY see their own data
+3. **Commission Logic**: Automatically calculate platform commission per order
+4. **Analytics**: Role-based dashboards with aggregated SQL queries
+5. **File Uploads**: Vercel Blob for vendor logos and product images
+6. **Error Handling**: Centralized API response wrapper and error handler middleware
+
+## Protected Routes
+
+- `/admin/*` - SUPER_ADMIN only
+- `/vendor/*` - VENDOR only
+- `/api/vendor/*` - VENDOR only
+- `/api/admin/*` - SUPER_ADMIN only
+
+## UI Requirements
+
+- Modern SaaS layout with role-based sidebars
+- Dark/light mode ready
+- Responsive design
+- Data tables with pagination, search, filters
+- Real-time KPI cards
+- Charts dashboard (line + bar charts)
